@@ -2,24 +2,31 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.PackerType
 {
     public class InnoSetup : IContentCheck, IScannable
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // Inno
+            new ContentMatchSet(
+                new ContentMatch(new byte?[] { 0x49, 0x6E, 0x6E, 0x6F }, start: 0x30, end: 0x31),
+                GetVersion,
+                "Inno Setup"),
+        };
+
         /// <inheritdoc/>
         public bool ShouldScan(byte[] magic) => true;
 
         /// <inheritdoc/>
-        /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "Inno"
-            byte[] check = new byte[] { 0x49, 0x6E, 0x6E, 0x6F };
-            if (fileContent.Contains(check, out int position) && position == 0x30)
-                return $"Inno Setup {GetVersion(fileContent)}" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
@@ -42,7 +49,7 @@ namespace BurnOutSharp.PackerType
             return null;
         }
 
-        private static string GetVersion(byte[] fileContent)
+        public static string GetVersion(string file, byte[] fileContent, List<int> positions)
         {
             byte[] signature = new ArraySegment<byte>(fileContent, 0x30, 12).ToArray();
 

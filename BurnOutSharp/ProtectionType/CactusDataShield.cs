@@ -3,70 +3,79 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class CactusDataShield : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // DATA.CDS
+            new ContentMatchSet(new byte?[] { 0x44, 0x41, 0x54, 0x41, 0x2E, 0x43, 0x44, 0x53 }, "Cactus Data Shield 200"),
+
+            // \*.CDS
+            new ContentMatchSet(new byte?[] { 0x5C, 0x2A, 0x2E, 0x43, 0x44, 0x53 }, "Cactus Data Shield 200"),
+
+            // CDSPlayer
+            new ContentMatchSet(new byte?[] { 0x43, 0x44, 0x53, 0x50, 0x6C, 0x61, 0x79, 0x65, 0x72 }, "Cactus Data Shield 200"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // DATA.CDS
-            byte[] check = new byte[] { 0x44, 0x41, 0x54, 0x41, 0x2E, 0x43, 0x44, 0x53 };
-            if (fileContent.Contains(check, out int position))
-                return "Cactus Data Shield 200" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            // \*.CDS
-            check = new byte[] { 0x5C, 0x2A, 0x2E, 0x43, 0x44, 0x53 };
-            if (fileContent.Contains(check, out position))
-                return "Cactus Data Shield 200" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            // CDSPlayer
-            check = new byte[] { 0x43, 0x44, 0x53, 0x50, 0x6C, 0x61, 0x79, 0x65, 0x72 };
-            if (fileContent.Contains(check, out position))
-                return "Cactus Data Shield 200" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Verify if these are OR or AND
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("CACTUSPJ.exe", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("CDSPlayer.app", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("PJSTREAM.DLL", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("wmmp.exe", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetExtension(f).Trim('.').Equals("cds", StringComparison.OrdinalIgnoreCase)))
-                {
-                    string versionPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("version.txt", StringComparison.OrdinalIgnoreCase));
-                    if (!string.IsNullOrWhiteSpace(versionPath))
-                    {
-                        string version = GetVersion(versionPath);
-                        if (!string.IsNullOrWhiteSpace(version))
-                            return $"Cactus Data Shield {version}";
-                    }
+                new PathMatchSet(new PathMatch("CACTUSPJ.exe", useEndsWith: true), GetVersion, "Cactus Data Shield"),
+                new PathMatchSet(new PathMatch("CDSPlayer.app", useEndsWith: true), GetVersion, "Cactus Data Shield"),
+                new PathMatchSet(new PathMatch("PJSTREAM.DLL", useEndsWith: true), GetVersion, "Cactus Data Shield"),
+                new PathMatchSet(new PathMatch("wmmp.exe", useEndsWith: true), GetVersion, "Cactus Data Shield"),
+                new PathMatchSet(new PathMatch(".cds", useEndsWith: true), GetVersion, "Cactus Data Shield"),
+            };
 
-                    return "Cactus Data Shield 200";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("CACTUSPJ.exe", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("CDSPlayer.app", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("PJSTREAM.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("wmmp.exe", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("cds", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Cactus Data Shield 200";
-                }
-            }
-
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
         }
 
-        private static string GetVersion(string path)
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("CACTUSPJ.exe", useEndsWith: true), "Cactus Data Shield 200"),
+                new PathMatchSet(new PathMatch("CDSPlayer.app", useEndsWith: true), "Cactus Data Shield 200"),
+                new PathMatchSet(new PathMatch("PJSTREAM.DLL", useEndsWith: true), "Cactus Data Shield 200"),
+                new PathMatchSet(new PathMatch("wmmp.exe", useEndsWith: true), "Cactus Data Shield 200"),
+                new PathMatchSet(new PathMatch(".cds", useEndsWith: true), "Cactus Data Shield 200"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
+        }
+
+        public static string GetVersion(string firstMatchedString, IEnumerable<string> files)
+        {
+            // Find the version.txt file first
+            string versionPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("version.txt", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(versionPath))
+            {
+                string version = GetInternalVersion(versionPath);
+                if (!string.IsNullOrWhiteSpace(version))
+                    return version;
+            }
+
+            return "200";
+        }
+
+        private static string GetInternalVersion(string path)
         {
             if (!File.Exists(path))
                 return null;

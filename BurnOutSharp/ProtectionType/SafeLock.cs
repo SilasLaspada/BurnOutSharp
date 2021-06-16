@@ -1,47 +1,50 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class SafeLock : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // SafeLock
+            new ContentMatchSet(new byte?[] { 0x53, 0x61, 0x66, 0x65, 0x4C, 0x6F, 0x63, 0x6B }, "SafeLock"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "SafeLock"
-            byte[] check = new byte[] { 0x53, 0x61, 0x66, 0x65, 0x4C, 0x6F, 0x63, 0x6B };
-            if (fileContent.Contains(check, out int position))
-                return "SafeLock" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Verify if these are OR or AND
+            var matchers = new List<PathMatchSet>
             {
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetFileName(f).Equals("SafeLock.dat", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("SafeLock.001", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("SafeLock.128", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return "SafeLock";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("SafeLock.dat", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("SafeLock.001", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("SafeLock.128", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "SafeLock";
-                }
-            }
+                new PathMatchSet(new PathMatch("SafeLock.dat", useEndsWith: true), "SafeLock"),
+                new PathMatchSet(new PathMatch("SafeLock.001", useEndsWith: true), "SafeLock"),
+                new PathMatchSet(new PathMatch("SafeLock.128", useEndsWith: true), "SafeLock"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("SafeLock.dat", useEndsWith: true), "SafeLock"),
+                new PathMatchSet(new PathMatch("SafeLock.001", useEndsWith: true), "SafeLock"),
+                new PathMatchSet(new PathMatch("SafeLock.128", useEndsWith: true), "SafeLock"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

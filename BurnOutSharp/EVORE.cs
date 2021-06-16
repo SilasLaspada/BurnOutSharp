@@ -162,14 +162,14 @@ namespace BurnOutSharp
             return startingprocess;
         }
 
-        private static IMAGE_SECTION_HEADER?[] ReadSections(byte[] fileContent)
+        private static IMAGE_SECTION_HEADER[] ReadSections(byte[] fileContent)
         {
             if (fileContent == null)
                 return null;
 
             uint PEHeaderOffset = BitConverter.ToUInt32(fileContent, 60);
             ushort NumberOfSections = BitConverter.ToUInt16(fileContent, (int)PEHeaderOffset + 6);
-            var sections = new IMAGE_SECTION_HEADER?[NumberOfSections];
+            var sections = new IMAGE_SECTION_HEADER[NumberOfSections];
             int index = (int)PEHeaderOffset + 120 + 16 * 8;            
             for (int i = 0; i < NumberOfSections; i++)
             {
@@ -179,56 +179,63 @@ namespace BurnOutSharp
             return sections;
         }
 
-        private static IMAGE_SECTION_HEADER? ReadSection(byte[] fileContent, int ptr)
+        private static IMAGE_SECTION_HEADER ReadSection(byte[] fileContent, int ptr)
         {
-            // Get the size of a section header for later
-            int sectionSize = Marshal.SizeOf<IMAGE_SECTION_HEADER>();
-
-            // If the contents are null or the wrong size, we can't read a section
-            if (fileContent == null || fileContent.Length < sectionSize)
-                return null;
-
-            // Create a new section and try our best to read one
-            IMAGE_SECTION_HEADER? section = null;
-            IntPtr tempPtr = IntPtr.Zero;
             try
             {
-                // Get the pointer to where the section will go
-                tempPtr = Marshal.AllocHGlobal(sectionSize);
-                
-                // If we couldn't get the space, just return null
-                if (tempPtr == IntPtr.Zero)
+                // Get the size of a section header for later
+                int sectionSize = Marshal.SizeOf<IMAGE_SECTION_HEADER>();
+
+                // If the contents are null or the wrong size, we can't read a section
+                if (fileContent == null || fileContent.Length < sectionSize)
                     return null;
 
-                // Copy from the array to the new space
-                Marshal.Copy(fileContent, ptr, tempPtr, sectionSize);
+                // Create a new section and try our best to read one
+                IMAGE_SECTION_HEADER section = null;
+                IntPtr tempPtr = IntPtr.Zero;
+                try
+                {
+                    // Get the pointer to where the section will go
+                    tempPtr = Marshal.AllocHGlobal(sectionSize);
+                    
+                    // If we couldn't get the space, just return null
+                    if (tempPtr == IntPtr.Zero)
+                        return null;
 
-                // Get the new section and return
-                section = Marshal.PtrToStructure<IMAGE_SECTION_HEADER>(tempPtr);
+                    // Copy from the array to the new space
+                    Marshal.Copy(fileContent, ptr, tempPtr, sectionSize);
+
+                    // Get the new section and return
+                    section = Marshal.PtrToStructure<IMAGE_SECTION_HEADER>(tempPtr);
+                }
+                catch
+                {
+                    // We don't care what the error was
+                    return null;
+                }
+                finally
+                {
+                    if (tempPtr != IntPtr.Zero)
+                        Marshal.FreeHGlobal(tempPtr);
+                }
+
+                return section;
             }
             catch
             {
-                // We don't care what the error was
                 return null;
             }
-            finally
-            {
-                if (tempPtr != IntPtr.Zero)
-                    Marshal.FreeHGlobal(tempPtr);
-            }
-
-            return section;
         }
 
-        private static uint RVA2Offset(uint RVA, IMAGE_SECTION_HEADER?[] sections)
+        private static uint RVA2Offset(uint RVA, IMAGE_SECTION_HEADER[] sections)
         {
             for (int i = 0; i < sections.Length; i++)
             {
-                if (!sections[i].HasValue)
+                if (sections[i] == null)
                     continue;
 
-                var section = sections[i].Value;
-                if (section.VirtualAddress <= RVA && section.VirtualAddress + section.PhysicalAddressOrVirtualSize > RVA)
+                var section = sections[i];
+                if (section.VirtualAddress <= RVA && section.VirtualAddress + section.PhysicalAddress > RVA)
                     return RVA - section.VirtualAddress + section.PointerToRawData;
             }
 

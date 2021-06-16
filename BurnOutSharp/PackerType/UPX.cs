@@ -1,59 +1,58 @@
+using System.Collections.Generic;
 using System.Text;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.PackerType
 {
     public class UPX : IContentCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // UPX!
+            new ContentMatchSet(new byte?[] { 0x55, 0x50, 0x58, 0x21 }, GetVersion, "UPX"),
+
+            // NOS 
+            new ContentMatchSet(new byte?[] { 0x4E, 0x4F, 0x53, 0x20 }, GetVersion, "UPX (NOS Variant)"),
+
+            new ContentMatchSet(
+                new List<byte?[]>
+                {
+                    // UPX0
+                    new byte?[] { 0x55, 0x50, 0x58, 0x30 },
+
+                    // UPX1
+                    new byte?[] { 0x55, 0x50, 0x58, 0x31 },
+                },
+                "UPX (Unknown Version)"
+            ),
+
+            new ContentMatchSet(
+                new List<byte?[]>
+                {
+                    // NOS0
+                    new byte?[] { 0x4E, 0x4F, 0x53, 0x30 },
+
+                    // NOS1
+                    new byte?[] { 0x4E, 0x4F, 0x53, 0x31 },
+                },
+                "UPX (NOS Variant) (Unknown Version)"
+            ),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // UPX!
-            byte[] check = new byte[] { 0x55, 0x50, 0x58, 0x21 };
-            if (fileContent.Contains(check, out int position))
-            {
-                string version = GetVersion(fileContent, position);
-                return $"UPX {version}" + (includePosition ? $" (Index {position})" : string.Empty);
-            }
-
-            // NOS 
-            check = new byte[] { 0x55, 0x50, 0x58, 0x21 };
-            if (fileContent.Contains(check, out position))
-            {
-                string version = GetVersion(fileContent, position);
-                return $"UPX (NOS Variant) {version}" + (includePosition ? $" (Index {position})" : string.Empty);
-            }
-
-            // UPX0
-            check = new byte[] { 0x55, 0x50, 0x58, 0x30 };
-            if (fileContent.Contains(check, out position, end: 2048))
-            {
-                // UPX1
-                byte[] check2 = new byte[] { 0x55, 0x50, 0x58, 0x31 };
-                if (fileContent.Contains(check2, out int position2, end: 2048))
-                {
-                    return $"UPX (Unknown Version)" + (includePosition ? $" (Index {position}, {position2})" : string.Empty);
-                }                
-            }
-
-            // NOS0
-            check = new byte[] { 0x4E, 0x4F, 0x53, 0x30 };
-            if (fileContent.Contains(check, out position, end: 2048))
-            {
-                // NOS1
-                byte[] check2 = new byte[] { 0x4E, 0x4F, 0x53, 0x31 };
-                if (fileContent.Contains(check2, out int position2, end: 2048))
-                {
-                    return $"UPX (NOS Variant) (Unknown Version)" + (includePosition ? $" (Index {position}, {position2})" : string.Empty);
-                }
-            }
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
-        private static string GetVersion(byte[] fileContent, int index)
+        public static string GetVersion(string file, byte[] fileContent, List<int> positions)
         {
             try
             {
+                int index = positions[0];
                 index -= 5;
                 string versionString = Encoding.ASCII.GetString(fileContent, index, 4);
                 if (!char.IsNumber(versionString[0]))

@@ -1,33 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class ByteShield : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("Byteshield.dll", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetExtension(f).Trim('.').Equals("bbz", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return "ByteShield";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("Byteshield.dll", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("bbz", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "ByteShield";
-                }
-            }
+                new PathMatchSet(new PathMatch("Byteshield.dll", useEndsWith: true), "ByteShield"),
+                new PathMatchSet(new PathMatch(".bbz", useEndsWith: true), "ByteShield"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("Byteshield.dll", useEndsWith: true), "ByteShield"),
+                new PathMatchSet(new PathMatch(".bbz", useEndsWith: true), "ByteShield"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

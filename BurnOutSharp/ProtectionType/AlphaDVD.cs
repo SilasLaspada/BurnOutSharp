@@ -1,27 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class AlphaDVD : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("PlayDVD.exe", StringComparison.OrdinalIgnoreCase)))
-                    return "Alpha-DVD";
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("PlayDVD.exe", StringComparison.OrdinalIgnoreCase))
-                    return "Alpha-DVD";
-            }
+                new PathMatchSet(new PathMatch("PlayDVD.exe", useEndsWith: true), "Alpha-DVD"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("PlayDVD.exe", useEndsWith: true), "Alpha-DVD"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

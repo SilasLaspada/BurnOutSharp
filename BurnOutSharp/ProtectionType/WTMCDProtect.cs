@@ -1,49 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class WTMCDProtect : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // WTM76545
+            new ContentMatchSet(new byte?[] { 0x57, 0x54, 0x4D, 0x37, 0x36, 0x35, 0x34, 0x35 }, "WTM CD Protect"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "WTM76545"
-            byte[] check = new byte[] { 0x57, 0x54, 0x4D, 0x37, 0x36, 0x35, 0x34, 0x35 };
-            if (fileContent.Contains(check, out int position))
-                return "WTM CD Protect" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Verify if these are OR or AND
+            var matchers = new List<PathMatchSet>
             {
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetExtension(f).Trim('.').Equals("IMP", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("imp.dat", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("wtmfiles.dat", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("Viewer.exe", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return "WTM CD Protect";
-                }
-            }
-            else
-            {
-                if (Path.GetExtension(path).Trim('.').Equals("IMP", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("imp.dat", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("wtmfiles.dat", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("Viewer.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "WTM CD Protect";
-                }
-            }
+                new PathMatchSet(new PathMatch(".IMP", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("imp.dat", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("wtmfiles.dat", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("Viewer.exe", useEndsWith: true), "WTM CD Protect"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch(".IMP", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("imp.dat", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("wtmfiles.dat", useEndsWith: true), "WTM CD Protect"),
+                new PathMatchSet(new PathMatch("Viewer.exe", useEndsWith: true), "WTM CD Protect"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

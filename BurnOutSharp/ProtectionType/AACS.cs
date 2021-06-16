@@ -1,34 +1,58 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class AACS : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => f.Contains(Path.Combine("aacs", "VTKF000.AACS")))
-                    && files.Any(f => f.Contains(Path.Combine("AACS", "CPSUnit00001.cci"))))
-                {
-                    return "AACS";
-                }
-            }
-            else
-            {
-                string filename = Path.GetFileName(path);
-                if (filename.Equals("VTKF000.AACS", StringComparison.OrdinalIgnoreCase)
-                    || filename.Equals("CPSUnit00001.cci", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "AACS";
-                }
-            }
+                // BD-ROM
+                new PathMatchSet(Path.Combine("AACS", "MKB_RO.inf"), GetVersion, "AACS"),
 
-            return null;
+                // HD-DVD
+                new PathMatchSet(Path.Combine("AACS", "MKBROM.AACS"), GetVersion, "AACS"),
+            };
+
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                // BD-ROM
+                new PathMatchSet(new PathMatch("MKB_RO.inf", useEndsWith: true), GetVersion, "AACS"),
+
+                // HD-DVD
+                new PathMatchSet(new PathMatch("MKBROM.AACS", useEndsWith: true), GetVersion, "AACS"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
+        }
+
+        public static string GetVersion(string firstMatchedString, IEnumerable<string> files)
+        {
+            if (!File.Exists(firstMatchedString))
+                return "(Unknown Version)";
+
+            try
+            {
+                using (var fs = File.OpenRead(firstMatchedString))
+                {
+                    fs.Seek(0xB, SeekOrigin.Begin);
+                    return fs.ReadByte().ToString();
+                }
+            }
+            catch
+            {
+                return "(Unknown Version)";
+            }
         }
     }
 }

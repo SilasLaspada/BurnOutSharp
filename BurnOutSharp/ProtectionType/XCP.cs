@@ -3,61 +3,72 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BurnOutSharp.FileType;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
+    // TODO: Figure out how to use path check framework here
     public class XCP : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // XCP.DAT
+            new ContentMatchSet(new byte?[] { 0x58, 0x43, 0x50, 0x2E, 0x44, 0x41, 0x54 }, "XCP"),
+
+            // XCPPlugins.dll
+            new ContentMatchSet(new byte?[]
+            {
+                0x58, 0x43, 0x50, 0x50, 0x6C, 0x75, 0x67, 0x69,
+                0x6E, 0x73, 0x2E, 0x64, 0x6C, 0x6C
+            }, "XCP"),
+
+            // XCPPhoenix.dll
+            new ContentMatchSet(new byte?[]
+            {
+                0x58, 0x43, 0x50, 0x50, 0x68, 0x6F, 0x65, 0x6E,
+                0x69, 0x78, 0x2E, 0x64, 0x6C, 0x6C
+            }, "XCP"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // XCP.DAT
-            byte[] check = new byte[] { 0x58, 0x43, 0x50, 0x2E, 0x44, 0x41, 0x54 };
-            if (fileContent.Contains(check, out int position))
-                return "XCP" + (includePosition ? $" (Index {position})" : string.Empty);
-        
-            // XCPPlugins.dll
-            check = new byte[] { 0x58, 0x43, 0x50, 0x50, 0x6C, 0x75, 0x67, 0x69, 0x6E, 0x73, 0x2E, 0x64, 0x6C, 0x6C };
-            if (fileContent.Contains(check, out position))
-                return "XCP" + (includePosition ? $" (Index {position})" : string.Empty);
-            
-            // XCPPhoenix.dll
-            check = new byte[] { 0x58, 0x43, 0x50, 0x50, 0x68, 0x6F, 0x65, 0x6E, 0x69, 0x78, 0x2E, 0x64, 0x6C, 0x6C };
-            if (fileContent.Contains(check, out position))
-                return "XCP" + (includePosition ? $" (Index {position})" : string.Empty);
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
+        }
+
+        /// <inheritdoc/>
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
+        {
+            // TODO: Verify if these are OR or AND
+            if (files.Any(f => Path.GetFileName(f).Equals("XCP.DAT", StringComparison.OrdinalIgnoreCase))
+                || files.Any(f => Path.GetFileName(f).Equals("ECDPlayerControl.ocx", StringComparison.OrdinalIgnoreCase))
+                || files.Any(f => Path.GetFileName(f).Equals("go.exe", StringComparison.OrdinalIgnoreCase))) // Path.Combine("contents", "go.exe")
+            {
+                string versionDatPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("VERSION.DAT", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(versionDatPath))
+                {
+                    string xcpVersion = GetDatVersion(versionDatPath);
+                    if (!string.IsNullOrWhiteSpace(xcpVersion))
+                        return new List<string>() { xcpVersion };
+                }
+
+                return new List<string>() { "XCP" };
+            }
 
             return null;
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public string CheckFilePath(string path)
         {
-            if (isDirectory)
+            if (Path.GetFileName(path).Equals("XCP.DAT", StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileName(path).Equals("ECDPlayerControl.ocx", StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileName(path).Equals("go.exe", StringComparison.OrdinalIgnoreCase))
             {
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetFileName(f).Equals("XCP.DAT", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("ECDPlayerControl.ocx", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("go.exe", StringComparison.OrdinalIgnoreCase))) // Path.Combine("contents", "go.exe")
-                {
-                    string versionDatPath = files.FirstOrDefault(f => Path.GetFileName(f).Equals("VERSION.DAT", StringComparison.OrdinalIgnoreCase));
-                    if (!string.IsNullOrWhiteSpace(versionDatPath))
-                    {
-                        string xcpVersion = GetDatVersion(versionDatPath);
-                        if (!string.IsNullOrWhiteSpace(xcpVersion))
-                            return xcpVersion;
-                    }
-
-                    return "XCP";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("XCP.DAT", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("ECDPlayerControl.ocx", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("go.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "XCP";
-                }
+                return "XCP";
             }
 
             return null;

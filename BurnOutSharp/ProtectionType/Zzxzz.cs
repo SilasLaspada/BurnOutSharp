@@ -1,30 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class Zzxzz : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (File.Exists(Path.Combine(path, "Zzxzz", "Zzz.aze")))
-                    return "Zzxzz";
+                new PathMatchSet(Path.Combine(path, "Zzxzz", "Zzz.aze"), "Zzxzz"),
+                new PathMatchSet($"Zzxzz{Path.DirectorySeparatorChar}", "Zzxzz"),
+            };
 
-                else if (Directory.Exists(Path.Combine(path, "Zzxzz")))
-                    return "Zzxzz";
-            }
-            else
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
             {
-                string filename = Path.GetFileName(path);
-                if (filename.Equals("Zzz.aze", StringComparison.OrdinalIgnoreCase))
-                    return "Zzxzz";
-            }
+                new PathMatchSet(new PathMatch("Zzz.aze", useEndsWith: true), "Zzxzz"),
+            };
 
-            return null;
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

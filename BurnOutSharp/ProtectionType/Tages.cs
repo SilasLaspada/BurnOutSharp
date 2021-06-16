@@ -2,91 +2,108 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
+    // TODO: Figure out how to use path check framework here
     public class Tages : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // protected-tages-runtime.exe
+            new ContentMatchSet(new byte?[]
+            {
+                0x70, 0x72, 0x6F, 0x74, 0x65, 0x63, 0x74, 0x65,
+                0x64, 0x2D, 0x74, 0x61, 0x67, 0x65, 0x73, 0x2D,
+                0x72, 0x75, 0x6E, 0x74, 0x69, 0x6D, 0x65, 0x2E,
+                0x65, 0x78, 0x65
+            }, Utilities.GetFileVersion, "TAGES"),
+
+            // tagesprotection.com
+            new ContentMatchSet(new byte?[]
+            {
+                0x74, 0x61, 0x67, 0x65, 0x73, 0x70, 0x72, 0x6F,
+                0x74, 0x65, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x2E,
+                0x63, 0x6F, 0x6D
+            }, Utilities.GetFileVersion, "TAGES"),
+
+            // (char)0xE8 + u + (char)0x00 + (char)0x00 + (char)0x00 + (char)0xE8
+            new ContentMatchSet(new byte?[] { 0xE8, 0x75, 0x00, 0x00, 0x00, 0xE8 }, GetVersion, "TAGES"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "protected-tages-runtime.exe"
-            byte[] check = new byte[] { 0x70, 0x72, 0x6F, 0x74, 0x65, 0x63, 0x74, 0x65, 0x64, 0x2D, 0x74, 0x61, 0x67, 0x65, 0x73, 0x2D, 0x72, 0x75, 0x6E, 0x74, 0x69, 0x6D, 0x65, 0x2E, 0x65, 0x78, 0x65 };
-            if (fileContent.Contains(check, out int position))
-                return $"TAGES {Utilities.GetFileVersion(file)}" + (includePosition ? $" (Index {position})" : string.Empty);
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
+        }
 
-            // "tagesprotection.com"
-            check = new byte[] { 0x74, 0x61, 0x67, 0x65, 0x73, 0x70, 0x72, 0x6F, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x2E, 0x63, 0x6F, 0x6D };
-            if (fileContent.Contains(check, out position))
-                return $"TAGES {Utilities.GetFileVersion(file)}" + (includePosition ? $" (Index {position})" : string.Empty);
+        /// <inheritdoc/>
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
+        {
+            List<string> protections = new List<string>();
 
-            // (char)0xE8 + "u" + (char)0x00 + (char)0x00 + (char)0x00 + (char)0xE8
-            check = new byte[] { 0xE8, 0x75, 0x00, 0x00, 0x00, 0xE8 };
-            if (fileContent.Contains(check, out position))
+            // TODO: Verify if these are OR or AND
+            if (files.Any(f => Path.GetFileName(f).Equals("Tages.dll", StringComparison.OrdinalIgnoreCase))
+                || files.Any(f => Path.GetFileName(f).Equals("Wave.aif", StringComparison.OrdinalIgnoreCase)))
             {
-                // (char)0xFF + (char)0xFF + "h"
-                if (new ArraySegment<byte>(fileContent, --position + 8, 3).SequenceEqual(new byte[] { 0xFF, 0xFF, 0x68 })) // TODO: Verify this subtract
-                    return $"TAGES {GetVersion(fileContent, position)}" + (includePosition ? $" (Index {position})" : string.Empty);
+                protections.Add("TAGES");
+            }
+            if (files.Any(f => Path.GetFileName(f).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                string file = files.First(f => Path.GetFileName(f).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase));
+                protections.Add("TAGES Activation Client " + Utilities.GetFileVersion(file));
+            }
+            if (files.Any(f => Path.GetFileName(f).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                string file = files.First(f => Path.GetFileName(f).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase));
+                protections.Add("TAGES Setup " + Utilities.GetFileVersion(file));
+            }
+            if (files.Any(f => Path.GetFileName(f).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                string file = files.First(f => Path.GetFileName(f).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase));
+                protections.Add("TAGES Setup " + Utilities.GetFileVersion(file));
+            }
+
+            if (protections.Count == 0)
+                return null;
+            else
+                return protections;
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            if (Path.GetFileName(path).Equals("Tages.dll", StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileName(path).Equals("Wave.aif", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TAGES";
+            }
+            else if (Path.GetFileName(path).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TAGES Activation Client " + Utilities.GetFileVersion(path);
+            }
+            else if (Path.GetFileName(path).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TAGES Setup " + Utilities.GetFileVersion(path);
+            }
+            else if (Path.GetFileName(path).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TAGES Setup " + Utilities.GetFileVersion(path);
             }
 
             return null;
         }
 
-        /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public static string GetVersion(string file, byte[] fileContent, List<int> positions)
         {
-            if (isDirectory)
-            {
-                List<string> protections = new List<string>();
-
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetFileName(f).Equals("Tages.dll", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("Wave.aif", StringComparison.OrdinalIgnoreCase)))
-                {
-                    protections.Add("TAGES");
-                }
-                if (files.Any(f => Path.GetFileName(f).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase)))
-                {
-                    string file = files.First(f => Path.GetFileName(f).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase));
-                    protections.Add("TAGES Activation Client " + Utilities.GetFileVersion(file));
-                }
-                if (files.Any(f => Path.GetFileName(f).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase)))
-                {
-                    string file = files.First(f => Path.GetFileName(f).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase));
-                    protections.Add("TAGES Setup " + Utilities.GetFileVersion(file));
-                }
-                if (files.Any(f => Path.GetFileName(f).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase)))
-                {
-                    string file = files.First(f => Path.GetFileName(f).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase));
-                    protections.Add("TAGES Setup " + Utilities.GetFileVersion(file));
-                }
-
-                if (protections.Count() == 0)
-                    return null;
-                else
-                    return string.Join(", ", protections);
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("Tages.dll", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("Wave.aif", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "TAGES";
-                }
-                else if (Path.GetFileName(path).Equals("tagesclient.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "TAGES Activation Client " + Utilities.GetFileVersion(path);
-                }
-                else if (Path.GetFileName(path).Equals("TagesSetup.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "TAGES Setup " + Utilities.GetFileVersion(path);
-                }
-                else if (Path.GetFileName(path).Equals("TagesSetup_x64.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "TAGES Setup " + Utilities.GetFileVersion(path);
-                }
-            }
-
+            // (char)0xFF + (char)0xFF + "h"
+            if (new ArraySegment<byte>(fileContent, --positions[0] + 8, 3).SequenceEqual(new byte[] { 0xFF, 0xFF, 0x68 })) // TODO: Verify this subtract
+                return GetVersion(fileContent, positions[0]);
+                
             return null;
         }
 
@@ -100,9 +117,9 @@ namespace BurnOutSharp.ProtectionType
                     return "5.5.0";
                 case 0x4:
                     return "5.5.2";
+                default:
+                    return string.Empty;
             }
-
-            return "";
         }
     }
 }

@@ -1,16 +1,23 @@
-﻿namespace BurnOutSharp.ProtectionType
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
+
+namespace BurnOutSharp.ProtectionType
 {
     public class CDSHiELDSE : IContentCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // ~0017.tmp
+            new ContentMatchSet(new byte?[] { 0x7E, 0x30, 0x30, 0x31, 0x37, 0x2E, 0x74, 0x6D, 0x70 }, "CDSHiELD SE"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "~0017.tmp"
-            byte[] check = new byte[] { 0x7E, 0x30, 0x30, 0x31, 0x37, 0x2E, 0x74, 0x6D, 0x70 };
-            if (fileContent.Contains(check, out int position))
-                return "CDSHiELD SE" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
     }
 }

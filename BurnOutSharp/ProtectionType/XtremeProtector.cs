@@ -1,16 +1,23 @@
-﻿namespace BurnOutSharp.ProtectionType
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
+
+namespace BurnOutSharp.ProtectionType
 {
     public class XtremeProtector : IContentCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // XPROT   
+            new ContentMatchSet(new byte?[] { 0x58, 0x50, 0x52, 0x4F, 0x54, 0x20, 0x20, 0x20 }, "Xtreme-Protector"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "XPROT   "
-            byte[] check = new byte[] { 0x58, 0x50, 0x52, 0x4F, 0x54, 0x20, 0x20, 0x20 };
-            if (fileContent.Contains(check, out int position))
-                return "Xtreme-Protector" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
     }
 }

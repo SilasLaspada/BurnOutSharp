@@ -4,14 +4,12 @@ using System.Linq;
 
 namespace BurnOutSharp.ProtectionType
 {
+    // TODO: Figure out how to use path check framework here
     public class ProtectDVDVideo : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (!isDirectory)
-                return null;
-
             if (Directory.Exists(Path.Combine(path, "VIDEO_TS")))
             {
                 string[] ifofiles = files.Where(s => s.EndsWith(".ifo")).ToArray();
@@ -19,10 +17,16 @@ namespace BurnOutSharp.ProtectionType
                 {
                     FileInfo ifofile = new FileInfo(ifofiles[i]);
                     if (ifofile.Length == 0)
-                        return "Protect DVD-Video";
+                        return new List<string>() { "Protect DVD-Video" };
                 }
             }
+            
+            return null;
+        }
 
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
             return null;
         }
     }

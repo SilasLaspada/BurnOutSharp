@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using BurnOutSharp.Matching;
 using Wise = WiseUnpacker.WiseUnpacker;
 
 namespace BurnOutSharp.PackerType
@@ -13,12 +14,13 @@ namespace BurnOutSharp.PackerType
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // WiseMain
-            byte[] check = new byte[] { 0x57, 0x69, 0x73, 0x65, 0x4D, 0x61, 0x69, 0x6E };
-            if (fileContent.Contains(check, out int position))
-                return "Wise Installation Wizard Module" + (includePosition ? $" (Index {position})" : string.Empty);
+            var matchers = new List<ContentMatchSet>
+            {
+                // WiseMain
+                new ContentMatchSet(new byte?[] { 0x57, 0x69, 0x73, 0x65, 0x4D, 0x61, 0x69, 0x6E }, "Wise Installation Wizard Module"),
+            };
 
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, matchers, includePosition);
         }
 
         /// <inheritdoc/>

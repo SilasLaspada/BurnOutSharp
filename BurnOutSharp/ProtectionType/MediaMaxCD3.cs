@@ -1,43 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class MediaMaxCD3 : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // Cd3Ctl
+            new ContentMatchSet(new byte?[] { 0x43, 0x64, 0x33, 0x43, 0x74, 0x6C }, "MediaMax CD-3"),
+
+            // DllInstallSbcp
+            new ContentMatchSet(new byte?[]
+            {
+                0x44, 0x6C, 0x6C, 0x49, 0x6E, 0x73, 0x74, 0x61,
+                0x6C, 0x6C, 0x53, 0x62, 0x63, 0x70
+            }, "MediaMax CD-3"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // Cd3Ctl
-            byte[] check = new byte[] { 0x43, 0x64, 0x33, 0x43, 0x74, 0x6C };
-            if (fileContent.Contains(check, out int position))
-                return "MediaMax CD-3" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            // DllInstallSbcp
-            check = new byte[] { 0x44, 0x6C, 0x6C, 0x49, 0x6E, 0x73, 0x74, 0x61, 0x6C, 0x6C, 0x53, 0x62, 0x63, 0x70 };
-            if (fileContent.Contains(check, out position))
-                return "MediaMax CD-3" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("LaunchCd.exe", StringComparison.OrdinalIgnoreCase)))
-                    return "MediaMax CD-3";
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("LaunchCd.exe", StringComparison.OrdinalIgnoreCase))
-                    return "MediaMax CD-3";
-            }
+                new PathMatchSet(new PathMatch("LaunchCd.exe", useEndsWith: true), "MediaMax CD-3"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("LaunchCd.exe", useEndsWith: true), "MediaMax CD-3"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

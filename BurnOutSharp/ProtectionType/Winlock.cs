@@ -1,27 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class Winlock : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("WinLock.PSX", StringComparison.OrdinalIgnoreCase)))
-                    return "Winlock";
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("WinLock.PSX", StringComparison.OrdinalIgnoreCase))
-                    return "Winlock";
-            }
+                new PathMatchSet(new PathMatch("WinLock.PSX", useEndsWith: true), "Winlock"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("WinLock.PSX", useEndsWith: true), "Winlock"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

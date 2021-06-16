@@ -1,36 +1,35 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class CDX : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Verify if these are OR or AND
+            var matchers = new List<PathMatchSet>
             {
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetFileName(f).Equals("CHKCDX16.DLL", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("CHKCDX32.DLL", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("CHKCDXNT.DLL", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return "CD-X";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("CHKCDX16.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("CHKCDX32.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("CHKCDXNT.DLL", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "CD-X";
-                }
-            }
+                new PathMatchSet(new PathMatch("CHKCDX16.DLL", useEndsWith: true), "CD-X"),
+                new PathMatchSet(new PathMatch("CHKCDX32.DLL", useEndsWith: true), "CD-X"),
+                new PathMatchSet(new PathMatch("CHKCDXNT.DLL", useEndsWith: true), "CD-X"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("CHKCDX16.DLL", useEndsWith: true), "CD-X"),
+                new PathMatchSet(new PathMatch("CHKCDX32.DLL", useEndsWith: true), "CD-X"),
+                new PathMatchSet(new PathMatch("CHKCDXNT.DLL", useEndsWith: true), "CD-X"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

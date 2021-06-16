@@ -10,7 +10,6 @@ In addition to the original BurnOut code, the following libraries (or ports ther
 - [libmspack4n](https://github.com/activescott/libmspack4n) - Microsoft CAB extraction
 - [psxt001z](https://github.com/Dremora/psxt001z) - PS1 LibCrypt detection
 - [SharpCompress](https://github.com/adamhathcock/sharpcompress) - 7zip/GZip/RAR/PKZIP extraction
-- [StormLib](https://github.com/ladislav-zezula/StormLib) - MPQ extraction
 - [StormLibSharp](https://github.com/robpaveza/stormlibsharp) - MPQ extraction
 - [UnshieldSharp](https://github.com/mnadareski/UnshieldSharp) - InstallShield CAB extraction
 - [WiseUnpacker](https://github.com/mnadareski/WiseUnpacker) - Wise Installer extraction
@@ -26,6 +25,7 @@ Below is a list of the protections that can be detected using this code:
 - ActiveMARK / ActiveMARK 5
 - Alpha-DVD
 - Alpha-ROM
+- BD+
 - Bitpool
 - ByteShield
 - Cactus Data Shield
@@ -44,6 +44,8 @@ Below is a list of the protections that can be detected using this code:
 - EA Protections (Including ~~Cucko~~, EA CDKey, and EA DRM)
 - Freelock
 - Games for Windows - Live (partial)
+- Generic CD Check
+- Generic Online Registration
 - Hexalock Autolock
 - Impulse Reactor
 - IndyVCD
@@ -85,13 +87,18 @@ Below is a list of the protections that can be detected using this code:
 
 Below is a list of the executable packers that can be detected using this code:
 
+- Advanced Installer
 - Armadillo
+- CExe
 - dotFuscator
 - EXE Stealth
 - Inno Setup
 - NSIS
 - PECompact
+- Setup Factory
 - UPX
+- WinRAR SFX
+- WinZip SFX
 - WISE Installer
 
 ## Archive Formats

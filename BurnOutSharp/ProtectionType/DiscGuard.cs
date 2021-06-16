@@ -1,34 +1,37 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class DiscGuard : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("IOSLINK.VXD", StringComparison.OrdinalIgnoreCase))
-                    && files.Any(f => Path.GetFileName(f).Equals("IOSLINK.SYS", StringComparison.OrdinalIgnoreCase)))
+                new PathMatchSet(new List<PathMatch>
                 {
-                    return "DiscGuard";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("IOSLINK.VXD", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("IOSLINK.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("IOSLINK.SYS", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "DiscGuard";
-                }
-            }
+                    new PathMatch("IOSLINK.VXD", useEndsWith: true),
+                    new PathMatch("IOSLINK.DLL", useEndsWith: true),
+                    new PathMatch("IOSLINK.SYS", useEndsWith: true),
+                }, "DiscGuard"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: false);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("IOSLINK.VXD", useEndsWith: true), "DiscGuard"),
+                new PathMatchSet(new PathMatch("IOSLINK.DLL", useEndsWith: true), "DiscGuard"),
+                new PathMatchSet(new PathMatch("IOSLINK.SYS", useEndsWith: true), "DiscGuard"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

@@ -1,0 +1,15 @@
+[submodule "BurnOutSharp/External/LessIO"]
+	path = BurnOutSharp/External/LessIO
+	url = https://github.com/activescott/LessIO.git
+[submodule "BurnOutSharp/External/libmspack4n"]
+	path = BurnOutSharp/External/libmspack4n
+	url = https://github.com/activescott/libmspack4n.git
+[submodule "BurnOutSharp/External/hllib"]
+	path = BurnOutSharp/External/hllib
+	url = https://github.com/RavuAlHemio/hllib.git
+[submodule "BurnOutSharp/External/stormlibsharp"]
+	path = BurnOutSharp/External/stormlibsharp
+	url = https://github.com/robpaveza/stormlibsharp.git
+[submodule "BurnOutSharp/External/WixToolset"]
+	path = BurnOutSharp/External/WixToolset
+	url = https://github.com/wixtoolset/Dtf.git

@@ -1,62 +1,70 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class CDCops : IContentCheck, IPathCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // CD-Cops,  ver. 
+            new ContentMatchSet(new byte?[]
+            {
+                0x43, 0x44, 0x2D, 0x43, 0x6F, 0x70, 0x73, 0x2C,
+                0x20, 0x20, 0x76, 0x65, 0x72, 0x2E, 0x20
+            }, GetVersion, "CD-Cops"),
+
+            // .grand + (char)0x00
+            new ContentMatchSet(new byte?[] { 0x2E, 0x67, 0x72, 0x61, 0x6E, 0x64, 0x00 }, "CD-Cops"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // "CD-Cops,  ver. "
-            byte[] check = new byte[] { 0x43, 0x44, 0x2D, 0x43, 0x6F, 0x70, 0x73, 0x2C, 0x20, 0x20, 0x76, 0x65, 0x72, 0x2E, 0x20 };
-            if (fileContent.Contains(check, out int position))
-                return $"CD-Cops {GetVersion(fileContent, position)}" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            // ".grand" + (char)0x00
-            check = new byte[] { 0x2E, 0x67, 0x72, 0x61, 0x6E, 0x64, 0x00};
-            if (fileContent.Contains(check, out position))
-                return "CD-Cops" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Original had "CDCOPS.DLL" required and all the rest in a combined OR
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("CDCOPS.DLL", StringComparison.OrdinalIgnoreCase))
-                    && (files.Any(f => Path.GetExtension(f).Trim('.').Equals("GZ_", StringComparison.OrdinalIgnoreCase))
-                        || files.Any(f => Path.GetExtension(f).Trim('.').Equals("W_X", StringComparison.OrdinalIgnoreCase))
-                        || files.Any(f => Path.GetExtension(f).Trim('.').Equals("Qz", StringComparison.OrdinalIgnoreCase))
-                        || files.Any(f => Path.GetExtension(f).Trim('.').Equals("QZ_", StringComparison.OrdinalIgnoreCase))))
-                {
-                    return "CD-Cops";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("CDCOPS.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("GZ_", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("W_X", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("Qz", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(path).Trim('.').Equals("QZ_", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "CD-Cops";
-                }
-            }
+                new PathMatchSet(new PathMatch("CDCOPS.DLL", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".GZ_", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".W_X", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".Qz", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".QZ_", useEndsWith: true), "CD-Cops"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
         }
 
-        private static string GetVersion(byte[] fileContent, int position)
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
         {
-            char[] version = new ArraySegment<byte>(fileContent, position + 15, 4).Select(b => (char)b).ToArray();
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("CDCOPS.DLL", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".GZ_", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".W_X", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".Qz", useEndsWith: true), "CD-Cops"),
+                new PathMatchSet(new PathMatch(".QZ_", useEndsWith: true), "CD-Cops"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
+        }
+
+        public static string GetVersion(string file, byte[] fileContent, List<int> positions)
+        {
+            char[] version = new ArraySegment<byte>(fileContent, positions[0] + 15, 4).Select(b => (char)b).ToArray();
             if (version[0] == 0x00)
-                return "";
+                return string.Empty;
 
             return new string(version);
         }

@@ -1,38 +1,37 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class HexalockAutoLock : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            // TODO: Verify if these are OR or AND
+            var matchers = new List<PathMatchSet>
             {
-                // TODO: Verify if these are OR or AND
-                if (files.Any(f => Path.GetFileName(f).Equals("Start_Here.exe", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("HCPSMng.exe", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("MFINT.DLL", StringComparison.OrdinalIgnoreCase))
-                    || files.Any(f => Path.GetFileName(f).Equals("MFIMP.DLL", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return "Hexalock AutoLock";
-                }
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("Start_Here.exe", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("HCPSMng.exe", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("MFINT.DLL", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(path).Equals("MFIMP.DLL", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Hexalock AutoLock";
-                }
-            }
+                new PathMatchSet(new PathMatch("Start_Here.exe", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("HCPSMng.exe", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("MFINT.DLL", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("MFIMP.DLL", useEndsWith: true), "Hexalock AutoLock"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("Start_Here.exe", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("HCPSMng.exe", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("MFINT.DLL", useEndsWith: true), "Hexalock AutoLock"),
+                new PathMatchSet(new PathMatch("MFIMP.DLL", useEndsWith: true), "Hexalock AutoLock"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

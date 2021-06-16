@@ -1,27 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.ProtectionType
 {
     public class TZCopyProtector : IPathCheck
     {
         /// <inheritdoc/>
-        public string CheckPath(string path, bool isDirectory, IEnumerable<string> files)
+        public List<string> CheckDirectoryPath(string path, IEnumerable<string> files)
         {
-            if (isDirectory)
+            var matchers = new List<PathMatchSet>
             {
-                if (files.Any(f => Path.GetFileName(f).Equals("_742893.016", StringComparison.OrdinalIgnoreCase)))
-                    return "TZCopyProtector";
-            }
-            else
-            {
-                if (Path.GetFileName(path).Equals("_742893.016", StringComparison.OrdinalIgnoreCase))
-                    return "TZCopyProtector";
-            }
+                new PathMatchSet(new PathMatch("_742893.016", useEndsWith: true), "TZCopyProtector"),
+            };
 
-            return null;
+            return MatchUtil.GetAllMatches(files, matchers, any: true);
+        }
+
+        /// <inheritdoc/>
+        public string CheckFilePath(string path)
+        {
+            var matchers = new List<PathMatchSet>
+            {
+                new PathMatchSet(new PathMatch("_742893.016", useEndsWith: true), "TZCopyProtector"),
+            };
+
+            return MatchUtil.GetFirstMatch(path, matchers, any: true);
         }
     }
 }

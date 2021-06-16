@@ -1,37 +1,54 @@
-﻿namespace BurnOutSharp.ProtectionType
+﻿using System.Collections.Generic;
+using BurnOutSharp.Matching;
+
+namespace BurnOutSharp.ProtectionType
 {
     public class CDCheck : IContentCheck
     {
+        /// <summary>
+        /// Set of all ContentMatchSets for this protection
+        /// </summary>
+        private static readonly List<ContentMatchSet> contentMatchers = new List<ContentMatchSet>
+        {
+            // MGS CDCheck
+            new ContentMatchSet(new byte?[]
+            {
+                0x4D, 0x47, 0x53, 0x20, 0x43, 0x44, 0x43, 0x68,
+                0x65, 0x63, 0x6B
+            }, "Microsoft Game Studios CD Check"),
+
+            // CDCheck
+            new ContentMatchSet(new byte?[] { 0x43, 0x44, 0x43, 0x68, 0x65, 0x63, 0x6B }, "Executable-Based CD Check"),
+        };
+
         /// <inheritdoc/>
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
-            // MGS CDCheck
-            byte[] check = new byte[] { 0x4D, 0x47, 0x53, 0x20, 0x43, 0x44, 0x43, 0x68, 0x65, 0x63, 0x6B };
-            if (fileContent.Contains(check, out int position))
-                return "Microsoft Game Studios CD Check" + (includePosition ? $" (Index {position})" : string.Empty);
-            
-            // CDCheck
-            check = new byte[] { 0x43, 0x44, 0x43, 0x68, 0x65, 0x63, 0x6B };
-            if (fileContent.Contains(check, out position))
-                return "Executable-Based CD Check" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, contentMatchers, includePosition);
         }
 
         // These content checks are too broad to be useful
-        private static string CheckContentsBroad(byte[] fileContent, bool includePosition = false)
+        private static string CheckContentsBroad(string file, byte[] fileContent, bool includePosition = false)
         {
-            // GetDriveType
-            byte[] check = new byte[] { 0x47, 0x65, 0x74, 0x44, 0x72, 0x69, 0x76, 0x65, 0x54, 0x79, 0x70, 0x65 };
-            if (fileContent.Contains(check, out int position))
-                return "CD Check" + (includePosition ? $" (Index {position})" : string.Empty);
+            var matchers = new List<ContentMatchSet>
+            {
+                // GetDriveType
+                new ContentMatchSet(new byte?[]
+                {
+                    0x47, 0x65, 0x74, 0x44, 0x72, 0x69, 0x76, 0x65,
+                    0x54, 0x79, 0x70, 0x65
+                }, "Executable-Based CD Check"),
 
-            // GetVolumeInformation
-            check = new byte[] { 0x47, 0x65, 0x74, 0x56, 0x6F, 0x6C, 0x75, 0x6D, 0x65, 0x49, 0x6E, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x69, 0x6F, 0x6E };
-            if (fileContent.Contains(check, out position))
-                return "CD Check" + (includePosition ? $" (Index {position})" : string.Empty);
+                // GetVolumeInformation
+                new ContentMatchSet(new byte?[]
+                {
+                    0x47, 0x65, 0x74, 0x56, 0x6F, 0x6C, 0x75, 0x6D,
+                    0x65, 0x49, 0x6E, 0x66, 0x6F, 0x72, 0x6D, 0x61,
+                    0x74, 0x69, 0x6F, 0x6E
+                }, "Executable-Based CD Check"),
+            };
 
-            return null;
+            return MatchUtil.GetFirstMatch(file, fileContent, matchers, includePosition);
         }
     }
 }

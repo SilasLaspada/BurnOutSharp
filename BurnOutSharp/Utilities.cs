@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Xml;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp
 {
@@ -155,70 +158,77 @@ namespace BurnOutSharp
         #region Byte Arrays
 
         /// <summary>
-        /// Search for a byte array in another array
+        /// Find all positions of one array in another, if possible, if possible
         /// </summary>
-        public static bool Contains(this byte[] stack, byte[] needle, out int position, int start = 0, int end = -1)
+        public static List<int> FindAllPositions(this byte[] stack, byte?[] needle, int start = 0, int end = -1)
         {
-            // Initialize the found position to -1
-            position = -1;
+            // Get the outgoing list
+            List<int> positions = new List<int>();
 
-            // If either array is null or empty, we can't do anything
-            if (stack == null || stack.Length == 0 || needle == null || needle.Length == 0)
-                return false;
+            // Initialize the loop variables
+            bool found = true;
+            int lastPosition = start;
+            var matcher = new ContentMatch(needle, end: end);
 
-            // If the needle array is larger than the stack array, it can't be contained within
-            if (needle.Length > stack.Length)
-                return false;
-
-            // If start or end are not set properly, set them to defaults
-            if (start < 0)
-                start = 0;
-            if (end < 0)
-                end = stack.Length - needle.Length;
-
-            for (int i = start; i < end; i++)
+            // Loop over and get all positions
+            while (found)
             {
-                if (stack.EqualAt(needle, i))
-                {
-                    position = i;
-                    return true;
-                }
+                matcher.Start = lastPosition;
+                (found, lastPosition) = matcher.Match(stack, false);
+                if (found)
+                    positions.Add(lastPosition);
             }
 
-            return false;
+            return positions;
+        }
+
+        /// <summary>
+        /// Find the first position of one array in another, if possible
+        /// </summary>
+        public static bool FirstPosition(this byte[] stack, byte?[] needle, out int position, int start = 0, int end = -1)
+        {
+            var matcher = new ContentMatch(needle, start, end);
+            (bool found, int foundPosition) = matcher.Match(stack, false);
+            position = foundPosition;
+            return found;
+        }
+
+        /// <summary>
+        /// Find the last position of one array in another, if possible
+        /// </summary>
+        public static bool LastPosition(this byte[] stack, byte?[] needle, out int position, int start = 0, int end = -1)
+        {
+            var matcher = new ContentMatch(needle, start, end);
+            (bool found, int foundPosition) = matcher.Match(stack, true);
+            position = foundPosition;
+            return found;
         }
 
         /// <summary>
         /// See if a byte array starts with another
         /// </summary>
-        public static bool StartsWith(this byte[] stack, byte[] needle)
+        public static bool StartsWith(this byte[] stack, byte?[] needle)
         {
-            return stack.Contains(needle, out int _, start: 0, end: 1);
+            return stack.FirstPosition(needle, out int _, start: 0, end: 1);
         }
 
         /// <summary>
-        /// Get if a stack at a certain index is equal to a needle
+        /// See if a byte array ends with another
         /// </summary>
-        private static bool EqualAt(this byte[] stack, byte[] needle, int index)
+        public static bool EndsWith(this byte[] stack, byte?[] needle)
         {
-            // If we're too close to the end of the stack, return false
-            if (needle.Length >= stack.Length - index)
-                return false;
-
-            for (int i = 0; i < needle.Length; i++)
-            {
-                if (stack[i + index] != needle[i])
-                    return false;
-            }
-
-            return true;
+            return stack.FirstPosition(needle, out int _, start: stack.Length - needle.Length);
         }
 
         #endregion
 
+        #region Protection
+
         /// <summary>
         /// Get the file version as reported by the filesystem
         /// </summary>
+        /// <param name="file">File to check for version</param>
+        /// <returns>Version string, null on error</returns>
         public static string GetFileVersion(string file)
         {
             if (file == null || !File.Exists(file))
@@ -232,5 +242,82 @@ namespace BurnOutSharp
             else
                 return fvinfo.ProductVersion.Replace(", ", ".");
         }
+
+        /// <summary>
+        /// Wrapper for GetFileVersion for use in content matching
+        /// </summary>
+        /// <param name="file">File to check for version</param>
+        /// <param name="fileContent">Byte array representing the file contents</param>
+        /// <param name="positions">Last matched positions in the contents</param>
+        /// <returns>Version string, null on error</returns>
+        public static string GetFileVersion(string file, byte[] fileContent, List<int> positions)
+        {
+            return GetFileVersion(file);
+        }
+
+        /// <summary>
+        /// Wrapper for GetFileVersion for use in path matching
+        /// </summary>
+        /// <param name="firstMatchedString">File to check for version</param>
+        /// <param name="files">Full list of input paths</param>
+        /// <returns>Version string, null on error</returns>
+        public static string GetFileVersion(string firstMatchedString, IEnumerable<string> files)
+        {
+            return GetFileVersion(firstMatchedString);
+        }
+
+        /// <summary>
+        /// Get the assembly version as determined by an embedded assembly manifest
+        /// </summary>
+        /// <param name="fileContent">Byte array representing the file contents</param>
+        /// <returns>Version string, null on error</returns>
+        /// <remarks>TODO: How do we find the manifest specifically better?</remarks>
+        public static string GetManifestVersion(byte[] fileContent)
+        {
+            // <?xml
+            byte?[] manifestStart = new byte?[] { 0x3C, 0x3F, 0x78, 0x6D, 0x6C };
+            if (!fileContent.LastPosition(manifestStart, out int manifestStartPosition))
+                return null;
+            
+            // </assembly>
+            byte?[] manifestEnd = new byte?[] { 0x3C, 0x2F, 0x61, 0x73, 0x73, 0x65, 0x6D, 0x62, 0x6C, 0x79, 0x3E };
+            if (!fileContent.FirstPosition(manifestEnd, out int manifestEndPosition, start: manifestStartPosition))
+                return null;
+            
+            // Read in the manifest to a string
+            int manifestLength = manifestEndPosition + "</assembly>".Length - manifestStartPosition;
+            string manifestString = Encoding.ASCII.GetString(fileContent, manifestStartPosition, manifestLength);
+
+            // Try to read the XML in from the string
+            try
+            {
+                // Load the XML string as a document
+                var manifestDoc = new XmlDocument();
+                manifestDoc.LoadXml(manifestString);
+
+                // If the XML has no children, it's invalid
+                if (!manifestDoc.HasChildNodes)
+                    return null;
+                
+                // Try to read the assembly node
+                var assemblyNode = manifestDoc["assembly"];
+                if (assemblyNode == null)
+                    return null;
+                
+                // Try to read the assemblyIdentity
+                var assemblyIdentityNode = assemblyNode["assemblyIdentity"];
+                if (assemblyIdentityNode == null)
+                    return null;
+                
+                // Return the version attribute, if possible
+                return assemblyIdentityNode.GetAttribute("version");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    
+        #endregion
     }
 }
