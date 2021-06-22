@@ -1,5 +1,6 @@
 ﻿using System;
-using System.IO;
+using System.Collections.Generic;
+using BurnOutSharp.Matching;
 
 namespace BurnOutSharp.PackerType
 {
@@ -10,26 +11,32 @@ namespace BurnOutSharp.PackerType
         public string CheckContents(string file, byte[] fileContent, bool includePosition = false)
         {
             // Another possible version string for version 1 is "PECO" (50 45 43 4F)
-
-            // "pec1"
-            byte?[] check = new byte?[] { 0x70, 0x65, 0x63, 0x31 };
-            if (fileContent.FirstPosition(check, out int position, end: 2048))
-                return "PE Compact 1" + (includePosition ? $" (Index {position})" : string.Empty);
-
-            // "PEC2"
-            check = new byte?[] { 0x50, 0x45, 0x43, 0x32 };
-            if (fileContent.FirstPosition(check, out position, end: 2048))
+            var matchers = new List<ContentMatchSet>
             {
-                int version = BitConverter.ToInt16(fileContent, position + 4);
-                return $"PE Compact 2 v{version}" + (includePosition ? $" (Index {position})" : string.Empty);
-            }
+                // pec1
+                new ContentMatchSet(new ContentMatch(new byte?[] { 0x70, 0x65, 0x63, 0x31 }, end: 2048), "PE Compact 1"),
 
-            // "PECompact2"
-            check = new byte?[] { 0x50, 0x45, 0x43, 0x6F, 0x6D, 0x70, 0x61, 0x63, 0x74, 0x32 };
-            if (fileContent.FirstPosition(check, out position))
-                return "PE Compact 2" + (includePosition ? $" (Index {position})" : string.Empty);
+                // PEC2
+                new ContentMatchSet(new ContentMatch(new byte?[] { 0x50, 0x45, 0x43, 0x32 }, end: 2048), GetVersion, "PE Compact 2"),
 
-            return null;
+                // PECompact2
+                new ContentMatchSet(new byte?[]
+                {
+                    0x50, 0x45, 0x43, 0x6F, 0x6D, 0x70, 0x61, 0x63,
+                    0x74, 0x32
+                }, "PE Compact 2"),
+            };
+
+            return MatchUtil.GetFirstMatch(file, fileContent, matchers, includePosition);
+        }
+
+        // TODO: Improve version detection, Protection ID is able to detect ranges of versions. For example, 1.66-1.84 or 2.20-3.02.
+        public static string GetVersion(string file, byte[] fileContent, List<int> positions)
+        {
+            short version = BitConverter.ToInt16(fileContent, positions[0] + 4);
+            if (version == 0)
+                return "PE Compact 2";
+            return $"Internal Version {version}";
         }
     }
 }
